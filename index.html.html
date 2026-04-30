@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Validador de CNPJ</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0f1e; --surface: #111827; --surface2: #1a2236; --border: #1e2d47;
+    --accent: #00d4ff; --accent2: #7c3aed; --green: #10b981; --red: #ef4444;
+    --yellow: #f59e0b; --text: #e2e8f0; --muted: #64748b;
+    --font-head: 'Syne', sans-serif; --font-mono: 'Space Mono', monospace;
+  }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-mono); min-height: 100vh; padding: 32px 16px;
+    background-image: radial-gradient(ellipse at 20% 10%, rgba(0,212,255,0.06) 0%, transparent 50%), radial-gradient(ellipse at 80% 80%, rgba(124,58,237,0.06) 0%, transparent 50%); }
+  .container { max-width: 960px; margin: 0 auto; }
+  header { margin-bottom: 32px; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(0,212,255,0.1); border: 1px solid rgba(0,212,255,0.25); color: var(--accent); font-size: 10px; padding: 4px 10px; border-radius: 999px; letter-spacing: 2px; margin-bottom: 12px; }
+  .badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: blink 1.5s ease infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+  h1 { font-family: var(--font-head); font-size: 36px; font-weight: 800; }
+  h1 span { color: var(--accent); }
+  .subtitle { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 20px; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px; background: var(--bg); padding: 4px; border-radius: 10px; border: 1px solid var(--border); }
+  .tab { flex: 1; padding: 10px; border: none; background: none; color: var(--muted); font-family: var(--font-mono); font-size: 11px; letter-spacing: 1px; cursor: pointer; border-radius: 8px; transition: all 0.2s; text-transform: uppercase; }
+  .tab.active { background: var(--surface2); color: var(--accent); border: 1px solid var(--border); }
+  .pane { display: none; } .pane.active { display: block; }
+  label { display: block; font-size: 11px; letter-spacing: 1.5px; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; }
+  textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: var(--font-mono); font-size: 13px; padding: 14px; border-radius: 10px; resize: vertical; min-height: 140px; outline: none; transition: border 0.2s; line-height: 1.8; }
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--muted); }
+  .upload-area { border: 2px dashed var(--border); border-radius: 12px; padding: 40px 24px; text-align: center; cursor: pointer; transition: all 0.2s; position: relative; }
+  .upload-area:hover, .upload-area.drag { border-color: var(--accent); background: rgba(0,212,255,0.04); }
+  .upload-area input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .upload-icon { font-size: 40px; margin-bottom: 10px; }
+  .upload-area p { font-size: 13px; color: var(--muted); }
+  .upload-area strong { color: var(--accent); }
+  .file-info { margin-top: 12px; background: var(--bg); border-radius: 8px; padding: 10px 14px; display: none; font-size: 12px; color: var(--text); border: 1px solid var(--border); }
+  .col-select { display: none; margin-top: 16px; }
+  select { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: var(--font-mono); font-size: 13px; padding: 10px 12px; border-radius: 8px; outline: none; cursor: pointer; }
+  select:focus { border-color: var(--accent); }
+  .btn { width: 100%; padding: 14px; border: none; border-radius: 10px; font-family: var(--font-head); font-size: 15px; font-weight: 600; cursor: pointer; letter-spacing: 1px; transition: all 0.2s; margin-top: 16px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; }
+  .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  .btn-export { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); color: var(--green); font-family: var(--font-mono); font-size: 12px; padding: 10px 16px; margin-top: 0; border-radius: 8px; width: auto; cursor: pointer; }
+  .btn-export:hover { background: rgba(16,185,129,0.2); }
+  .progress-wrap { margin-top: 16px; display: none; }
+  .progress-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+  .progress-bar { height: 4px; background: var(--border); border-radius: 999px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); width: 0%; transition: width 0.3s; }
+  .stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 20px; }
+  .stat { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 16px; text-align: center; }
+  .stat-num { font-family: var(--font-head); font-size: 30px; font-weight: 800; }
+  .stat-label { font-size: 10px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; margin-top: 2px; }
+  .stat.total .stat-num { color: var(--text); } .stat.ativo .stat-num { color: var(--green); }
+  .stat.inativo .stat-num { color: var(--red); } .stat.erro .stat-num { color: var(--yellow); }
+  .results-table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead tr { border-bottom: 2px solid var(--border); }
+  th { padding: 10px 12px; text-align: left; font-size: 10px; letter-spacing: 1.5px; color: var(--muted); text-transform: uppercase; white-space: nowrap; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
+  tbody tr:hover { background: var(--surface2); }
+  td { padding: 10px 12px; vertical-align: middle; }
+  .td-cnpj { font-weight: 700; letter-spacing: 1px; color: var(--accent); font-size: 11px; cursor: pointer; }
+  .td-cnpj:hover { text-decoration: underline; }
+  .td-name { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge-status { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; font-weight: 700; white-space: nowrap; }
+  .badge-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; }
+  .status-ativa { background: rgba(16,185,129,0.15); color: var(--green); border: 1px solid rgba(16,185,129,0.3); }
+  .status-ativa::before { background: var(--green); }
+  .status-baixada,.status-inapta,.status-suspensa,.status-cancelada { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+  .status-baixada::before,.status-inapta::before,.status-suspensa::before,.status-cancelada::before { background: var(--red); }
+  .status-erro,.status-invalido { background: rgba(245,158,11,0.15); color: var(--yellow); border: 1px solid rgba(245,158,11,0.3); }
+  .status-erro::before,.status-invalido::before { background: var(--yellow); }
+  .hint { font-size: 11px; color: var(--muted); margin-top: 8px; }
+  .api-notice { background: rgba(0,212,255,0.06); border: 1px solid rgba(0,212,255,0.2); border-radius: 10px; padding: 12px 16px; font-size: 11px; color: var(--accent); margin-top: 12px; line-height: 1.6; }
+  .spin { animation: spin 1s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (max-width:600px) { .stats { grid-template-columns: repeat(2,1fr); } h1 { font-size: 26px; } }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="badge">RECEITA FEDERAL · CNPJ</div>
+    <h1>Validador de <span>CNPJ</span></h1>
+    <p class="subtitle">Consulta automática via ReceitaWS / BrasilAPI · Situação cadastral em tempo real</p>
+  </header>
+
+  <div class="card">
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('manual')">✏️ &nbsp;Digitar CNPJs</button>
+      <button class="tab" onclick="switchTab('excel')">📊 &nbsp;Importar Excel</button>
+    </div>
+
+    <div class="pane active" id="pane-manual">
+      <label>CNPJs (um por linha ou separados por vírgula/ponto-e-vírgula)</label>
+      <textarea id="cnpj-input" placeholder="55.989.784/0001-14&#10;44.333.222/0001-11&#10;11.222.333/0001-81"></textarea>
+      <p class="hint">Aceita com ou sem formatação (pontos, traços, barras)</p>
+    </div>
+
+    <div class="pane" id="pane-excel">
+      <div class="upload-area" id="upload-area">
+        <input type="file" id="file-input" accept=".xlsx,.xls,.csv" onchange="handleFile(this)">
+        <div class="upload-icon">📂</div>
+        <p><strong>Clique para selecionar</strong> ou arraste o arquivo aqui</p>
+        <p style="margin-top:4px;font-size:11px;">Suporta .xlsx, .xls e .csv</p>
+      </div>
+      <div class="file-info" id="file-info"></div>
+      <div class="col-select" id="col-select">
+        <label>Coluna com os CNPJs</label>
+        <select id="col-picker" onchange="previewColumn()"></select>
+        <p class="hint" id="col-preview" style="margin-top:8px;"></p>
+      </div>
+    </div>
+
+    <div class="api-notice">
+      ℹ️ Consultas feitas diretamente pelo seu navegador para <strong>ReceitaWS</strong> e <strong>BrasilAPI</strong>. Aguarda 1s entre cada CNPJ para respeitar os limites gratuitos.
+    </div>
+
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-label">
+        <span id="prog-text">Consultando...</span>
+        <span id="prog-count">0 / 0</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="prog-fill"></div></div>
+    </div>
+
+    <button class="btn btn-primary" id="btn-validate" onclick="startValidation()">🔍 &nbsp;Validar CNPJs</button>
+  </div>
+
+  <div class="card" id="results-card" style="display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
+      <div>
+        <div style="font-family:var(--font-head);font-size:20px;font-weight:700;">Resultados</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">Clique no CNPJ para abrir na Receita Federal</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-export" onclick="exportCSV()">⬇️ CSV</button>
+        <button class="btn btn-export" onclick="exportExcel()" style="border-color:rgba(0,212,255,0.3);color:var(--accent);background:rgba(0,212,255,0.05);">⬇️ Excel</button>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat total"><div class="stat-num" id="s-total">0</div><div class="stat-label">Total</div></div>
+      <div class="stat ativo"><div class="stat-num" id="s-ativo">0</div><div class="stat-label">Ativas</div></div>
+      <div class="stat inativo"><div class="stat-num" id="s-inativo">0</div><div class="stat-label">Inativas</div></div>
+      <div class="stat erro"><div class="stat-num" id="s-erro">0</div><div class="stat-label">Erros/Inválidos</div></div>
+    </div>
+    <div class="results-table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>CNPJ</th><th>Razão Social</th><th>Situação</th><th>Dt. Abertura</th><th>Dt. Situação</th><th>Município / UF</th><th>Atividade Principal</th></tr></thead>
+        <tbody id="results-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentTab = 'manual', sheetData = [], results = [], isRunning = false;
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active',(i===0&&tab==='manual')||(i===1&&tab==='excel')));
+  document.querySelectorAll('.pane').forEach((p,i) => p.classList.toggle('active',(i===0&&tab==='manual')||(i===1&&tab==='excel')));
+}
+
+function cleanCNPJ(raw) { return String(raw).replace(/\D/g,''); }
+function formatCNPJ(d) { return d.length!==14?d:`${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}`; }
+
+function validateDigits(cnpj) {
+  if (cnpj.length !== 14 || /^(\d)\1+$/.test(cnpj)) return false;
+  const calc = (str, w) => { let s = str.split('').reduce((a,d,i)=>a+parseInt(d)*w[i],0); let r=s%11; return r<2?0:11-r; };
+  return calc(cnpj.slice(0,12),[5,4,3,2,9,8,7,6,5,4,3,2])===parseInt(cnpj[12]) &&
+         calc(cnpj.slice(0,13),[6,5,4,3,2,9,8,7,6,5,4,3,2])===parseInt(cnpj[13]);
+}
+
+function fmtDate(raw) {
+  if (!raw) return '—';
+  // formats: YYYY-MM-DD, DD/MM/YYYY, YYYY-MM-DDTHH:mm:ss
+  const s = String(raw).slice(0,10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s.split('-').reverse().join('/');
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+  return s;
+}
+
+const APIS = [
+  { name: 'ReceitaWS', url: c=>`https://receitaws.com.br/v1/cnpj/${c}`,
+    parse: d=>({ razao:d.nome, situacao:d.situacao, municipio:d.municipio, uf:d.uf, atividade:d.atividade_principal?.[0]?.text,
+      abertura: fmtDate(d.abertura), data_situacao: fmtDate(d.data_situacao) }) },
+  { name: 'BrasilAPI', url: c=>`https://brasilapi.com.br/api/cnpj/v1/${c}`,
+    parse: d=>({ razao:d.razao_social, situacao:d.descricao_situacao_cadastral, municipio:d.municipio, uf:d.uf, atividade:d.cnae_fiscal_descricao,
+      abertura: fmtDate(d.data_inicio_atividade), data_situacao: fmtDate(d.data_situacao_cadastral) }) },
+  { name: 'CNPJ.ws', url: c=>`https://publica.cnpj.ws/cnpj/${c}`,
+    parse: d=>({ razao:d.razao_social, situacao:d.estabelecimento?.situacao_cadastral, municipio:d.estabelecimento?.cidade?.nome, uf:d.estabelecimento?.estado?.sigla, atividade:d.estabelecimento?.atividade_principal?.descricao,
+      abertura: fmtDate(d.estabelecimento?.data_inicio_atividade), data_situacao: fmtDate(d.estabelecimento?.data_situacao_cadastral) }) },
+];
+
+async function tryQuery(cnpj) {
+  for (const api of APIS) {
+    try {
+      const res = await fetch(api.url(cnpj), { signal: AbortSignal.timeout(8000) });
+      if (res.status === 429) { await sleep(2000); continue; }
+      if (!res.ok) continue;
+      const data = await res.json();
+      const parsed = api.parse(data);
+      if (parsed.razao) return { ...parsed, _api: api.name };
+    } catch(e) { continue; }
+  }
+  return null;
+}
+
+function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
+
+function getCNPJs() {
+  if (currentTab === 'manual') {
+    return document.getElementById('cnpj-input').value.split(/[\n,;]+/).map(s=>cleanCNPJ(s.trim())).filter(s=>s.length>0);
+  }
+  const idx = parseInt(document.getElementById('col-picker').value);
+  return sheetData.slice(1).map(r=>cleanCNPJ(r[idx]||'')).filter(s=>s.length>0);
+}
+
+async function startValidation() {
+  if (isRunning) return;
+  const cnpjs = getCNPJs();
+  if (!cnpjs.length) { alert('Nenhum CNPJ encontrado.'); return; }
+
+  isRunning = true; results = [];
+  const btn = document.getElementById('btn-validate');
+  btn.disabled = true; btn.innerHTML = '<span class="spin">⟳</span> Consultando...';
+  document.getElementById('progress-wrap').style.display = 'block';
+  document.getElementById('results-card').style.display = 'block';
+  document.getElementById('results-body').innerHTML = '';
+  let ativo=0, inativo=0, erro=0;
+
+  for (let i=0; i<cnpjs.length; i++) {
+    const raw = cnpjs[i];
+    document.getElementById('prog-fill').style.width = (i/cnpjs.length*100)+'%';
+    document.getElementById('prog-count').textContent = `${i}/${cnpjs.length}`;
+    document.getElementById('prog-text').textContent = `Consultando ${i+1} de ${cnpjs.length}...`;
+
+    let row;
+    if (!validateDigits(raw)) {
+      row = { cnpj:raw, razao:'—', situacao:'INVÁLIDO', municipio:'—', uf:'—', atividade:'Dígito verificador inválido', abertura:'—', data_situacao:'—' };
+      erro++;
+    } else {
+      const data = await tryQuery(raw);
+      if (!data) {
+        row = { cnpj:raw, razao:'—', situacao:'ERRO', municipio:'—', uf:'—', atividade:'Todas as APIs falharam', abertura:'—', data_situacao:'—' };
+        erro++;
+      } else {
+        const sit = String(data.situacao||'').toUpperCase().trim();
+        row = { cnpj:raw, razao:data.razao||'—', situacao:sit, municipio:data.municipio||'—', uf:data.uf||'—', atividade:data.atividade||'—', abertura:data.abertura||'—', data_situacao:data.data_situacao||'—', _api:data._api };
+        if (sit==='ATIVA') ativo++; else inativo++;
+      }
+    }
+
+    results.push(row);
+    appendRow(i+1, row);
+    document.getElementById('s-total').textContent = results.length;
+    document.getElementById('s-ativo').textContent = ativo;
+    document.getElementById('s-inativo').textContent = inativo;
+    document.getElementById('s-erro').textContent = erro;
+
+    if (i < cnpjs.length-1) await sleep(1100);
+  }
+
+  document.getElementById('prog-fill').style.width='100%';
+  document.getElementById('prog-text').textContent='✅ Concluído!';
+  document.getElementById('prog-count').textContent=`${cnpjs.length}/${cnpjs.length}`;
+  btn.disabled=false; btn.innerHTML='🔍 &nbsp;Validar CNPJs'; isRunning=false;
+}
+
+function getStatusClass(sit) {
+  const s=(sit||'').toLowerCase();
+  if(s==='ativa') return 'status-ativa';
+  if(['baixada','inapta','suspensa','cancelada'].includes(s)) return `status-${s}`;
+  if(s==='erro') return 'status-erro';
+  return 'status-invalido';
+}
+
+function appendRow(idx, row) {
+  const tbody = document.getElementById('results-body');
+  const tr = document.createElement('tr');
+  const fmt = row.cnpj.length===14 ? formatCNPJ(row.cnpj) : row.cnpj;
+  const cls = getStatusClass(row.situacao);
+  const apiTag = row._api ? `<span style="font-size:9px;color:var(--muted);margin-left:6px;">${row._api}</span>` : '';
+  tr.innerHTML = `
+    <td style="color:var(--muted);font-size:11px;">${idx}</td>
+    <td class="td-cnpj" onclick="openRF('${row.cnpj}')" title="Ver na Receita Federal">${fmt}</td>
+    <td class="td-name" title="${row.razao}">${row.razao}${apiTag}</td>
+    <td><span class="badge-status ${cls}">${row.situacao}</span></td>
+    <td style="font-size:11px;white-space:nowrap;">${row.abertura}</td>
+    <td style="font-size:11px;white-space:nowrap;">${row.data_situacao}</td>
+    <td style="font-size:11px;white-space:nowrap;">${row.municipio}${row.uf!=='—'?' / '+row.uf:''}</td>
+    <td class="td-name" title="${row.atividade}" style="font-size:11px;">${row.atividade}</td>`;
+  tbody.appendChild(tr);
+}
+
+function openRF(cnpj) {
+  window.open(`https://solucoes.receita.fazenda.gov.br/servicos/cnpjreva/cnpjreva_solicitacao.asp?cnpj=${cnpj}`,'_blank');
+}
+
+function exportCSV() {
+  const h=['CNPJ','CNPJ Formatado','Razão Social','Situação','Dt. Abertura','Dt. Situação Cadastral','Município','UF','Atividade'];
+  const rows=results.map(r=>[r.cnpj,r.cnpj.length===14?formatCNPJ(r.cnpj):r.cnpj,r.razao,r.situacao,r.abertura,r.data_situacao,r.municipio,r.uf,r.atividade]);
+  const csv=[h,...rows].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}));
+  a.download=`cnpj_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+}
+
+function exportExcel() {
+  const wb=XLSX.utils.book_new();
+  const data=[['CNPJ','CNPJ Formatado','Razão Social','Situação','Dt. Abertura','Dt. Situação Cadastral','Município','UF','Atividade'],
+    ...results.map(r=>[r.cnpj,r.cnpj.length===14?formatCNPJ(r.cnpj):r.cnpj,r.razao,r.situacao,r.abertura,r.data_situacao,r.municipio,r.uf,r.atividade])];
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  ws['!cols']=[14,18,35,12,13,13,20,5,40].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb,ws,'Validação CNPJ');
+  XLSX.writeFile(wb,`cnpj_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+function handleFile(input) {
+  const file=input.files[0]; if(!file) return;
+  const info=document.getElementById('file-info');
+  info.style.display='block'; info.textContent=`📄 ${file.name} — lendo...`;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try {
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      sheetData=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      if(sheetData.length<2){info.textContent='⚠️ Planilha vazia.';return;}
+      const headers=sheetData[0];
+      info.textContent=`✅ ${file.name} — ${sheetData.length-1} linhas encontradas`;
+      const picker=document.getElementById('col-picker');
+      picker.innerHTML=headers.map((h,i)=>`<option value="${i}">${h||'Coluna '+(i+1)}</option>`).join('');
+      const auto=headers.findIndex(h=>/cnpj/i.test(String(h)));
+      if(auto>=0) picker.value=auto;
+      document.getElementById('col-select').style.display='block';
+      previewColumn();
+    } catch(e){ info.textContent='❌ Erro ao ler arquivo.'; }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function previewColumn() {
+  const idx=parseInt(document.getElementById('col-picker').value);
+  const prev=sheetData.slice(1,4).map(r=>cleanCNPJ(r[idx]||'')).filter(Boolean);
+  const total=sheetData.slice(1).filter(r=>cleanCNPJ(r[idx]||'').length>0).length;
+  document.getElementById('col-preview').textContent=`Prévia: ${prev.map(formatCNPJ).join(', ')} (${total} CNPJs encontrados)`;
+}
+
+const ua=document.getElementById('upload-area');
+ua.addEventListener('dragover',e=>{e.preventDefault();ua.classList.add('drag');});
+ua.addEventListener('dragleave',()=>ua.classList.remove('drag'));
+ua.addEventListener('drop',e=>{
+  e.preventDefault();ua.classList.remove('drag');
+  const fi=document.getElementById('file-input');fi.files=e.dataTransfer.files;handleFile(fi);
+});
+</script>
+</body>
+</html>
